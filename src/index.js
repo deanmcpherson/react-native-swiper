@@ -249,15 +249,6 @@ module.exports = React.createClass({
       isScrolling: false
     })
 
-    // making our events coming from android compatible to updateIndex logic
-    if (!e.nativeEvent.contentOffset) {
-      if (this.state.dir == 'x') {
-        e.nativeEvent.contentOffset = {x: e.nativeEvent.position * this.state.width}
-      } else {
-        e.nativeEvent.contentOffset = {y: e.nativeEvent.position * this.state.height}
-      }
-    }
-
     this.updateIndex(e.nativeEvent.contentOffset, this.state.dir)
 
     // Note: `this.setState` is async, so I call the `onMomentumScrollEnd`
@@ -318,11 +309,20 @@ module.exports = React.createClass({
     let y = 0
     if(state.dir == 'x') x = diff * state.width
     if(state.dir == 'y') y = diff * state.height
-    this.refs.scrollView && this.refs.scrollView.scrollTo(y, x)
 
+    if (Platform.OS === 'ios') {
+      this.refs.scrollView && this.refs.scrollView.scrollTo(y, x);
+    } else {
+      let newIndex = this.state.index + index;
+
+      this.refs.scrollView.setPage(newIndex);
+      this.setState({
+        index: newIndex
+      }, () => this.props.onMomentumScrollEnd && this.props.onMomentumScrollEnd())
+    }
     // update scroll state
     this.setState({
-      isScrolling: true,
+      isScrolling: Platform.OS === 'ios',
       autoplayEnd: false,
     })
   },
@@ -439,7 +439,10 @@ module.exports = React.createClass({
          );
       return (
          <ViewPagerAndroid ref="scrollView"
-            onPageSelected={this.onScrollEnd}
+           // onPageScrollStateChanged={e => this.setState({index: e})}
+            onPageSelected={e => {
+              this.setState({index: e.nativeEvent.position}, () => this.props.onMomentumScrollEnd && this.props.onMomentumScrollEnd());
+            }}
             style={{flex: 1}}>
             {pages}
          </ViewPagerAndroid>
